@@ -24,7 +24,7 @@ use uv_distribution_types::{
 };
 use uv_fs::Simplified;
 use uv_install_wheel::LinkMode;
-use uv_normalize::PackageName;
+use uv_normalize::{PackageName, PipGroupName};
 use uv_pypi_types::{Conflicts, Requirement, SupportedEnvironments};
 use uv_python::{
     EnvironmentPreference, PythonEnvironment, PythonInstallation, PythonPreference, PythonRequest,
@@ -58,6 +58,7 @@ pub(crate) async fn pip_compile(
     build_constraints_from_workspace: Vec<Requirement>,
     environments: SupportedEnvironments,
     extras: ExtrasSpecification,
+    groups: &[PipGroupName],
     output_file: Option<&Path>,
     resolution_mode: ResolutionMode,
     prerelease_mode: PrereleaseMode,
@@ -159,7 +160,7 @@ pub(crate) async fn pip_compile(
         requirements,
         constraints,
         overrides,
-        &[],
+        groups,
         &client_builder,
     )
     .await?;

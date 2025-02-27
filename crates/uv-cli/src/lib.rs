@@ -1022,6 +1022,14 @@ pub struct PipCompileArgs {
     #[arg(long, overrides_with("no_deps"), hide = true)]
     pub deps: bool,
 
+    /// Install the specified dependency group in the specified pyproject.toml
+    ///
+    /// If no path is provided, ./pyproject.toml is used.
+    ///
+    /// May be provided multiple times.
+    #[arg(long, group = "sources", conflicts_with_all = ["requirements", "package", "editable"])]
+    pub group: Vec<PipGroupName>,
+
     /// Write the compiled requirements to the given `requirements.txt` file.
     ///
     /// If the file already exists, the existing versions will be preferred when resolving
@@ -1586,7 +1594,9 @@ pub struct PipInstallArgs {
     #[arg(long, overrides_with("no_deps"), hide = true)]
     pub deps: bool,
 
-    /// Ignore the package and it's dependencies, only install from the specified dependency group.
+    /// Install the specified dependency group in the specified pyproject.toml
+    ///
+    /// If no path is provided, ./pyproject.toml is used.
     ///
     /// May be provided multiple times.
     #[arg(long, group = "sources", conflicts_with_all = ["requirements", "package", "editable"])]
