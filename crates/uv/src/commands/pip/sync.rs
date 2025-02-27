@@ -100,6 +100,7 @@ pub(crate) async fn pip_sync(
         constraints,
         overrides,
         source_trees,
+        groups,
         index_url,
         extra_index_urls,
         no_index,

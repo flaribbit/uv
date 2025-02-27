@@ -1,6 +1,6 @@
-use std::borrow::Cow;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::{borrow::Cow, collections::BTreeMap};
 
 use anyhow::{Context, Result};
 use futures::stream::FuturesOrdered;
@@ -13,7 +13,7 @@ use uv_distribution_types::{
     BuildableSource, DirectorySourceUrl, HashGeneration, HashPolicy, SourceUrl, VersionId,
 };
 use uv_fs::Simplified;
-use uv_normalize::{ExtraName, PackageName, PipGroupName};
+use uv_normalize::{ExtraName, PackageName};
 use uv_pep508::RequirementOrigin;
 use uv_pypi_types::Requirement;
 use uv_resolver::{InMemoryIndex, MetadataResponse};
@@ -37,7 +37,7 @@ pub struct SourceTreeResolver<'a, Context: BuildContext> {
     /// The extras to include when resolving requirements.
     extras: &'a ExtrasSpecification,
     /// The groups to include when resolving requirements.
-    groups: &'a [PipGroupName],
+    groups: &'a BTreeMap<PathBuf, DevGroupsSpecification>,
     /// The hash policy to enforce.
     hasher: &'a HashStrategy,
     /// The in-memory index for resolving dependencies.
@@ -50,7 +50,7 @@ impl<'a, Context: BuildContext> SourceTreeResolver<'a, Context> {
     /// Instantiate a new [`SourceTreeResolver`] for a given set of `source_trees`.
     pub fn new(
         extras: &'a ExtrasSpecification,
-        groups: &'a [PipGroupName],
+        groups: &'a BTreeMap<PathBuf, DevGroupsSpecification>,
         hasher: &'a HashStrategy,
         index: &'a InMemoryIndex,
         database: DistributionDatabase<'a, Context>,
@@ -100,24 +100,9 @@ impl<'a, Context: BuildContext> SourceTreeResolver<'a, Context> {
 
         let mut requirements = Vec::new();
 
-        // pip --group is equivalent to --only-group
-        // but only use the ones that match this path
-        let only_groups = self
-            .groups
-            .iter()
-            .filter(|group| group.path == path)
-            .map(|group| group.name.clone())
-            .collect();
-        let groups = DevGroupsSpecification::from_args(
-            false,
-            false,
-            false,
-            Vec::new(),
-            Vec::new(),
-            false,
-            only_groups,
-            false,
-        );
+        // Resolve any groups associated with this path
+        let default_groups = DevGroupsSpecification::default();
+        let groups = self.groups.get(path).unwrap_or(&default_groups);
 
         // Flatten any transitive extras and include dependencies
         // (unless something like --only-group was passed)

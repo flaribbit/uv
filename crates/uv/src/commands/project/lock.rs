@@ -564,7 +564,7 @@ async fn do_lock(
     // optional on the downstream APIs.
     let build_hasher = HashStrategy::default();
     let extras = ExtrasSpecification::default();
-    let groups = Vec::new();
+    let groups = BTreeMap::new();
 
     // Resolve the flat indexes from `--find-links`.
     let flat_index = {

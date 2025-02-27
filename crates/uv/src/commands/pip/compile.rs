@@ -147,6 +147,7 @@ pub(crate) async fn pip_compile(
         constraints,
         overrides,
         source_trees,
+        groups,
         extras: used_extras,
         index_url,
         extra_index_urls,
@@ -158,6 +159,7 @@ pub(crate) async fn pip_compile(
         requirements,
         constraints,
         overrides,
+        &[],
         &client_builder,
     )
     .await?;
@@ -418,7 +420,7 @@ pub(crate) async fn pip_compile(
         project,
         BTreeSet::default(),
         &extras,
-        &[],
+        &groups,
         preferences,
         EmptyInstalledPackages,
         &hasher,

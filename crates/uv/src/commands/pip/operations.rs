@@ -3,7 +3,7 @@
 use anyhow::{anyhow, Context};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fmt::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -13,8 +13,8 @@ use uv_tool::InstalledTools;
 use uv_cache::Cache;
 use uv_client::{BaseClientBuilder, RegistryClient};
 use uv_configuration::{
-    BuildOptions, Concurrency, ConfigSettings, Constraints, DryRun, ExtrasSpecification, Overrides,
-    Reinstall, Upgrade,
+    BuildOptions, Concurrency, ConfigSettings, Constraints, DevGroupsSpecification, DryRun,
+    ExtrasSpecification, Overrides, Reinstall, Upgrade,
 };
 use uv_dispatch::BuildDispatch;
 use uv_distribution::DistributionDatabase;
@@ -50,33 +50,13 @@ use crate::printer::Printer;
 
 /// Consolidate the requirements for an installation.
 pub(crate) async fn read_requirements(
-    mut requirements: &[RequirementsSource],
+    requirements: &[RequirementsSource],
     constraints: &[RequirementsSource],
     overrides: &[RequirementsSource],
     extras: &ExtrasSpecification,
     groups: &[PipGroupName],
     client_builder: &BaseClientBuilder<'_>,
 ) -> Result<RequirementsSpecification, Error> {
-    // pip `--group` flags specify their own sources, and basically disable everything else.
-    // So if we encounter them, we desugar them to `-r` inputs and proceed as normal.
-    let group_requirements;
-    if !groups.is_empty() {
-        debug_assert!(
-            requirements.is_empty(),
-            "-r should be exclusive with --group in `uv pip`"
-        );
-        // Deduplicate in a stable way to get deterministic behaviour
-        let deduped_paths = groups
-            .iter()
-            .map(|group| &group.path)
-            .collect::<BTreeSet<_>>();
-        group_requirements = deduped_paths
-            .into_iter()
-            .map(|path| RequirementsSource::PyprojectToml(path.to_owned()))
-            .collect::<Vec<_>>();
-        requirements = &group_requirements[..];
-    }
-
     // If the user requests `extras` but does not provide a valid source (e.g., a `pyproject.toml`),
     // return an error.
     if !extras.is_empty() && !requirements.iter().any(RequirementsSource::allows_extras) {
@@ -101,6 +81,7 @@ pub(crate) async fn read_requirements(
         requirements,
         constraints,
         overrides,
+        groups,
         client_builder,
     )
     .await?)
@@ -112,7 +93,7 @@ pub(crate) async fn read_constraints(
     client_builder: &BaseClientBuilder<'_>,
 ) -> Result<Vec<NameRequirementSpecification>, Error> {
     Ok(
-        RequirementsSpecification::from_sources(&[], constraints, &[], client_builder)
+        RequirementsSpecification::from_sources(&[], constraints, &[], &[], client_builder)
             .await?
             .constraints,
     )
@@ -127,7 +108,7 @@ pub(crate) async fn resolve<InstalledPackages: InstalledPackagesProvider>(
     mut project: Option<PackageName>,
     workspace_members: BTreeSet<PackageName>,
     extras: &ExtrasSpecification,
-    groups: &[PipGroupName],
+    groups: &BTreeMap<PathBuf, DevGroupsSpecification>,
     preferences: Vec<Preference>,
     installed_packages: InstalledPackages,
     hasher: &HashStrategy,
