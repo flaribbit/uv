@@ -1027,7 +1027,7 @@ pub struct PipCompileArgs {
     /// If no path is provided, ./pyproject.toml is used.
     ///
     /// May be provided multiple times.
-    #[arg(long, group = "sources", conflicts_with_all = ["requirements", "package", "editable"])]
+    #[arg(long, group = "sources")]
     pub group: Vec<PipGroupName>,
 
     /// Write the compiled requirements to the given `requirements.txt` file.
@@ -1599,7 +1599,7 @@ pub struct PipInstallArgs {
     /// If no path is provided, ./pyproject.toml is used.
     ///
     /// May be provided multiple times.
-    #[arg(long, group = "sources", conflicts_with_all = ["requirements", "package", "editable"])]
+    #[arg(long, group = "sources")]
     pub group: Vec<PipGroupName>,
 
     /// Require a matching hash for each requirement.

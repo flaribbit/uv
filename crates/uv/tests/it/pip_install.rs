@@ -9017,6 +9017,22 @@ fn dependency_group() -> Result<()> {
 
     context = new_context()?;
     uv_snapshot!(context.filters(), context.pip_install()
+        .arg("-r").arg("pyproject.toml")
+        .arg("--group").arg("bar"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    Prepared 2 packages in [TIME]
+    Installed 2 packages in [TIME]
+     + iniconfig==2.0.0
+     + typing-extensions==4.10.0
+    ");
+
+    context = new_context()?;
+    uv_snapshot!(context.filters(), context.pip_install()
         .arg("--group").arg("pyproject.toml:bar"), @r"
     success: true
     exit_code: 0
@@ -9027,6 +9043,22 @@ fn dependency_group() -> Result<()> {
     Prepared 1 package in [TIME]
     Installed 1 package in [TIME]
      + iniconfig==2.0.0
+    ");
+
+    context = new_context()?;
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("-r").arg("pyproject.toml")
+        .arg("--group").arg("pyproject.toml:bar"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    Prepared 2 packages in [TIME]
+    Installed 2 packages in [TIME]
+     + iniconfig==2.0.0
+     + typing-extensions==4.10.0
     ");
 
     context = new_context()?;
@@ -9057,6 +9089,24 @@ fn dependency_group() -> Result<()> {
     Installed 2 packages in [TIME]
      + iniconfig==2.0.0
      + sortedcontainers==2.4.0
+    ");
+
+    context = new_context()?;
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("-r").arg("pyproject.toml")
+        .arg("--group").arg("foo")
+        .arg("--group").arg("bar"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    Prepared 3 packages in [TIME]
+    Installed 3 packages in [TIME]
+     + iniconfig==2.0.0
+     + sortedcontainers==2.4.0
+     + typing-extensions==4.10.0
     ");
 
     Ok(())
@@ -9190,26 +9240,6 @@ fn many_pyproject_group() -> Result<()> {
     ");
 
     Ok(())
-}
-
-#[test]
-fn group_needs_manifest() {
-    let context = TestContext::new("3.12");
-
-    uv_snapshot!(context.filters(), context.pip_install()
-        .arg("sniffio")
-        .arg("--group").arg("foo"), @r"
-    success: false
-    exit_code: 2
-    ----- stdout -----
-
-    ----- stderr -----
-    error: the argument '[PACKAGE]...' cannot be used with '--group <GROUP>'
-
-    Usage: uv pip install --cache-dir [CACHE_DIR] --exclude-newer <EXCLUDE_NEWER> <PACKAGE|--requirements <REQUIREMENTS>|--editable <EDITABLE>|--group <GROUP>>
-
-    For more information, try '--help'.
-    ");
 }
 
 /// Regression test that we don't discover workspaces with `--no-sources`.

@@ -15231,6 +15231,271 @@ fn respect_index_preference() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn dependency_group() -> Result<()> {
+    fn new_context() -> Result<TestContext> {
+        let context = TestContext::new("3.12");
+
+        let pyproject_toml = context.temp_dir.child("pyproject.toml");
+        pyproject_toml.write_str(
+            r#"
+            [project]
+            name = "project"
+            version = "0.1.0"
+            requires-python = ">=3.12"
+            dependencies = ["typing-extensions"]
+            [dependency-groups]
+            foo = ["sortedcontainers"]
+            bar = ["iniconfig"]
+            dev = ["sniffio"]
+            "#,
+        )?;
+
+        Ok(context)
+    }
+
+    let mut context;
+
+    context = new_context()?;
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("--group").arg("bar"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + iniconfig==2.0.0
+    ");
+
+    context = new_context()?;
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("-r").arg("pyproject.toml")
+        .arg("--group").arg("bar"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    Prepared 2 packages in [TIME]
+    Installed 2 packages in [TIME]
+     + iniconfig==2.0.0
+     + typing-extensions==4.10.0
+    ");
+
+    context = new_context()?;
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("--group").arg("pyproject.toml:bar"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + iniconfig==2.0.0
+    ");
+
+    context = new_context()?;
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("-r").arg("pyproject.toml")
+        .arg("--group").arg("pyproject.toml:bar"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    Prepared 2 packages in [TIME]
+    Installed 2 packages in [TIME]
+     + iniconfig==2.0.0
+     + typing-extensions==4.10.0
+    ");
+
+    context = new_context()?;
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("--group").arg("foo"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + sortedcontainers==2.4.0
+    ");
+
+    context = new_context()?;
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("--group").arg("foo")
+        .arg("--group").arg("bar"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    Prepared 2 packages in [TIME]
+    Installed 2 packages in [TIME]
+     + iniconfig==2.0.0
+     + sortedcontainers==2.4.0
+    ");
+
+    context = new_context()?;
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("-r").arg("pyproject.toml")
+        .arg("--group").arg("foo")
+        .arg("--group").arg("bar"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    Prepared 3 packages in [TIME]
+    Installed 3 packages in [TIME]
+     + iniconfig==2.0.0
+     + sortedcontainers==2.4.0
+     + typing-extensions==4.10.0
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn many_pyproject_group() -> Result<()> {
+    fn new_context() -> Result<TestContext> {
+        let context = TestContext::new("3.12");
+
+        let pyproject_toml = context.temp_dir.child("pyproject.toml");
+        pyproject_toml.write_str(
+            r#"
+            [project]
+            name = "project"
+            version = "0.1.0"
+            requires-python = ">=3.12"
+            dependencies = ["typing-extensions"]
+            [dependency-groups]
+            foo = ["sortedcontainers"]
+            "#,
+        )?;
+
+        let subdir = context.temp_dir.child("subdir");
+        subdir.create_dir_all()?;
+        let pyproject_toml2 = subdir.child("pyproject.toml");
+        pyproject_toml2.write_str(
+            r#"
+            [project]
+            name = "project"
+            version = "0.1.0"
+            requires-python = ">=3.12"
+            [dependency-groups]
+            foo = ["iniconfig"]
+            bar = ["sniffio"]
+            "#,
+        )?;
+
+        Ok(context)
+    }
+
+    let mut context;
+
+    context = new_context()?;
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("--group").arg("pyproject.toml:foo"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + sortedcontainers==2.4.0
+    ");
+
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("--group").arg("subdir/pyproject.toml:foo"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + iniconfig==2.0.0
+    ");
+
+    context = new_context()?;
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("--group").arg("pyproject.toml:foo")
+        .arg("--group").arg("subdir/pyproject.toml:foo"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    Prepared 2 packages in [TIME]
+    Installed 2 packages in [TIME]
+     + iniconfig==2.0.0
+     + sortedcontainers==2.4.0
+    ");
+
+    context = new_context()?;
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("--group").arg("foo")
+        .arg("--group").arg("subdir/pyproject.toml:foo"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    Prepared 2 packages in [TIME]
+    Installed 2 packages in [TIME]
+     + iniconfig==2.0.0
+     + sortedcontainers==2.4.0
+    ");
+
+    context = new_context()?;
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("--group").arg("foo")
+        .arg("--group").arg("subdir/pyproject.toml:bar"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    Prepared 2 packages in [TIME]
+    Installed 2 packages in [TIME]
+     + sniffio==1.3.1
+     + sortedcontainers==2.4.0
+    ");
+
+    context = new_context()?;
+
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("--group").arg("bar")
+        .arg("--group").arg("subdir/pyproject.toml:bar"), @r"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: The dependency-group 'bar' is not defined in pyproject.toml
+    ");
+
+    Ok(())
+}
+
 /// See: <https://github.com/astral-sh/uv/issues/10957>
 #[test]
 fn compile_preserve_requires_python_split() -> Result<()> {
